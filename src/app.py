@@ -1,17 +1,10 @@
 from flask import Flask, redirect, render_template, request, url_for
-import pathlib
 import os
-import json
 import requests
-import sys
-from flask_login import LoginManager, login_user, login_required
-from authlib.integrations.flask_client import OAuth
+from flask_login import LoginManager, login_user
 from sqlalchemy import MetaData 
 from flask_sqlalchemy import SQLAlchemy
-from pathlib import Path
-import shutil
 from flask import Flask, redirect, url_for
-from flask_dance.contrib.github import make_github_blueprint, github
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user
 
@@ -19,7 +12,6 @@ from config import SQLITE_DATABASE_NAME, SECRET_KEY
 
 app = Flask(__name__, static_folder='static', template_folder='templates', 
             static_url_path='')
-#app.secret_key = "5e866465a4b37dc40626ef9e0d01281be3715a20"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + SQLITE_DATABASE_NAME
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
@@ -38,20 +30,22 @@ metadata = MetaData(naming_convention=convention)
 db = SQLAlchemy(metadata=metadata)
 db.init_app(app)
 
-#db.app = app
-#db.init_app(app)
-
 login_manager = LoginManager(app)
-#login_manager.login_view = "login_page"
+login_manager.login_view = 'login'
 
-#login_manager.init_app(app)
+GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
+GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
+GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
+GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
+GITHUB_USER_API_URL = "https://api.github.com/user"
 
+'''
 github_blueprint = make_github_blueprint(
     client_id="Ov23livGUGj7h22VHE7g",
     client_secret="5e866465a4b37dc40626ef9e0d01281be3715a20",
     redirect_to="github_login"
 )
-app.register_blueprint(github_blueprint, url_prefix="/github")
+app.register_blueprint(github_blueprint, url_prefix="/github")'''
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -74,9 +68,10 @@ def load_user(user_id):
 def index_page():
     return render_template('index.html', user=current_user if current_user.is_authenticated else None)
 
+'''
 @app.route('/login')
 def login_page():
-    return render_template('login.html')
+    return render_template('login.html')'''
 
 '''
 @app.route('/auth/vk_auth')
@@ -89,38 +84,60 @@ def vk_auth():
 
     access_token_json = json.loads(response.text)'''
 
-@app.route("/github/login")
-def github_login():
-    if not github.authorized:
-        return redirect(url_for("github.login"))
-    resp = github.get("/user")
-    github_info = resp.json()
-    github_id = str(github_info["id"])
-    username = github_info["login"]
-    avatar_url = github_info.get("avatar_url", "empty.jpg")
+@app.route('/login')
+def login():
+    github_redirect_url = f"{GITHUB_AUTH_URL}?client_id={GITHUB_CLIENT_ID}&redirect_uri={url_for('callback', _external=True)}"
+    return redirect(github_redirect_url)
 
-    # Поиск или создание пользователя
+@app.route('/callback')
+def callback():
+    code = request.args.get('code')
+    if not code:
+        return "Authorization failed!", 400
+
+    token_response = requests.post(
+        GITHUB_TOKEN_URL,
+        headers={"Accept": "application/json"},
+        data={
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": url_for('callback', _external=True),
+        },
+    )
+
+    token_data = token_response.json()
+    access_token = token_data.get('access_token')
+    if not access_token:
+        return "Failed to obtain access token!", 400
+
+    user_response = requests.get(
+        GITHUB_USER_API_URL,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    user_data = user_response.json()
+
+    if 'id' not in user_data:
+        return "Failed to fetch user information!", 400
+
+    github_id = str(user_data['id'])
     user = User.query.filter_by(vk_id=github_id).first()
-    if not user:
+    if user is None:
         user = User(
-            nick=username,
-            avatar_uri=avatar_url,
-            vk_id=github_id
+            nick=user_data.get('login'),
+            avatar_uri=user_data.get('avatar_url'),
+            vk_id=github_id,
         )
         db.session.add(user)
         db.session.commit()
 
     login_user(user)
-    return redirect(url_for("index"))
+    return redirect(url_for('index'))
 
-
-@app.route("/logout")
+@app.route('/logout')
 def logout():
     logout_user()
-    return redirect(url_for("index"))
-
-with app.app_context():
-    db.create_all()
+    return redirect(url_for('index'))
     
 
 if __name__ == '__main__':
