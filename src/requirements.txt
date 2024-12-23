@@ -17,6 +17,7 @@ MarkupSafe==3.0.2
 oauthlib==3.2.2
 packaging==24.2
 pycparser==2.22
+python-dotenv==1.0.1
 requests==2.32.3
 requests-oauthlib==2.0.0
 SQLAlchemy==2.0.36
