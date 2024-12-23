@@ -1,5 +1,8 @@
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, url_for, request
 import os
+import hmac
+import hashlib
+from dotenv import load_dotenv
 import requests
 from flask_login import LoginManager, login_user
 from sqlalchemy import MetaData 
@@ -10,13 +13,17 @@ from flask_login import LoginManager, UserMixin, login_user, current_user, logou
 
 from config import SQLITE_DATABASE_NAME, SECRET_KEY
 
+load_dotenv()
+
 app = Flask(__name__, static_folder='static', template_folder='templates', 
             static_url_path='')
+app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + SQLITE_DATABASE_NAME
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
-app.config['SECRET_KEY'] = SECRET_KEY
-app.config['SESSION_COOKIE_NAME'] = "flaskauth"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False #True?
+app.config['TELEGRAM_BOT_TOKEN'] = os.getenv('TELEGRAM_BOT_TOKEN')
+#app.config['SECRET_KEY'] = SECRET_KEY
+#app.config['SESSION_COOKIE_NAME'] = "flaskauth"
 
 convention = {
     "ix": 'ix_%(column_0_label)s',
@@ -39,14 +46,6 @@ GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USER_API_URL = "https://api.github.com/user"
 
-'''
-github_blueprint = make_github_blueprint(
-    client_id="Ov23livGUGj7h22VHE7g",
-    client_secret="5e866465a4b37dc40626ef9e0d01281be3715a20",
-    redirect_to="github_login"
-)
-app.register_blueprint(github_blueprint, url_prefix="/github")'''
-
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nick = db.Column(db.String(255), nullable=True)
@@ -67,22 +66,6 @@ def load_user(user_id):
 @app.route('/')
 def index_page():
     return render_template('index.html', user=current_user if current_user.is_authenticated else None)
-
-'''
-@app.route('/login')
-def login_page():
-    return render_template('login.html')'''
-
-'''
-@app.route('/auth/vk_auth')
-def vk_auth():
-    user_code = request.args.get('code')
-    if not user_code:
-        return redirect(url_for('login_page'))
-    response = requests.get(
-        'https://oauth.vk.com/access_token?client_id=52797104&client_secret=zE1JE41CD7PhIwyyMrFr&redirect_uri=http://127.0.0.1:5000/auth/vk_auth&code=' + user_code)
-
-    access_token_json = json.loads(response.text)'''
 
 @app.route('/login')
 def login():
