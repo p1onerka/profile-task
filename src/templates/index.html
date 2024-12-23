@@ -48,34 +48,6 @@
     <![endif]-->
   </head>
   <body>
-    
-    {% if user %}
-        <h1>Welcome, {{ user.name }}!</h1>
-        <img src="{{ user.avatar }}" alt="User Avatar" style="width:100px;height:100px;border-radius:50%;">
-        <form action="{{ url_for('logout') }}" method="post">
-            <button type="submit">Logout</button>
-        </form>
-    {% else %}
-        <h1>Welcome to the app!</h1>
-        <a href="{{ url_for('login', provider='telegram') }}">Login with Telegram</a><br>
-        <a href="{{ url_for('login', provider='github') }}">Login with GitHub</a>
-    {% endif %}
-
-    {% if user %}
-        <p>Hello, {{ user.nick }}!</p>
-        <img src="{{ user.avatar_uri }}" alt="User Avatar" style="width:100px;height:100px;border-radius:50%;">
-        <form action="{{ url_for('logout') }}" method="get">
-            <button type="submit">Logout</button>
-        </form>
-    {% else %}
-        <script async 
-                src="https://telegram.org/js/telegram-widget.js?22" 
-                data-telegram-login="portfolio_task_bot" 
-                data-size="large" 
-                data-auth-url="{{ url_for('login', provider='telegram') }}" 
-                data-request-access="write">
-        </script>
-    {% endif %}
 
     <!-- Main Navigation 
     ================================================== -->
@@ -641,6 +613,23 @@
         </div><!-- end container -->
 
     </section>
+
+    <div class="row mt-4 justify-content-center">
+		<div class="col-12 col-md-auto d-flex flex-column flex-md-row justify-content-center align-items-center">
+			<!-- GitHub Login Button -->
+			<a href="{{ url_for('login', provider='github') }}" class="btn btn-dark rounded-3 mb-3 mb-md-0 me-md-2">Войти
+				через GitHub</a>
+	
+			<!-- Telegram login button -->
+			<script async src="https://telegram.org/js/telegram-widget.js?7" data-telegram-login="portfolio_task_bot"
+				data-size="large" data-radius="10" data-lang="ru"
+				data-auth-url="https://profile-task.onrender.com/telegram_auth">
+				</script>
+		</div>
+		<p></p>
+		<p></p>
+		<p></p>
+	</div>
 
     <!-- Footer 
     ================================================== -->
