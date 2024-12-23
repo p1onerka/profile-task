@@ -61,19 +61,21 @@
         </a>
     {% endif %}
 
-    <script async src="https://telegram.org/js/telegram-widget.js?22" 
-            data-telegram-login="portfolio_task_bot" 
-            data-size="medium" 
-            data-onauth="onTelegramAuth(user)" 
-            data-request-access="write"></script>
-
-    <!-- Обработка авторизации -->
-    <script type="text/javascript">
-    function onTelegramAuth(user) {
-        alert('Logged in as ' + user.first_name + ' ' + (user.last_name || '') + 
-              ' (' + user.id + (user.username ? ', @' + user.username : '') + ')');
-    }
-    </script>
+    {% if user %}
+        <p>Hello, {{ user.nick }}!</p>
+        <img src="{{ user.avatar_uri }}" alt="User Avatar" style="width:100px;height:100px;border-radius:50%;">
+        <form action="{{ url_for('logout') }}" method="get">
+            <button type="submit">Logout</button>
+        </form>
+    {% else %}
+        <script async 
+                src="https://telegram.org/js/telegram-widget.js?22" 
+                data-telegram-login="your_bot_username" 
+                data-size="large" 
+                data-auth-url="{{ url_for('telegram_login', _external=True) }}" 
+                data-request-access="write">
+        </script>
+    {% endif %}
 
     <!-- Main Navigation 
     ================================================== -->
