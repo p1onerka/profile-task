@@ -11,7 +11,7 @@ if os.path.exists(SECRET_KEY_FILE):
 else:
     SECRET_KEY = os.urandom(16).hex()'''
 
-
+'''
 import os
 import pathlib
 
@@ -22,14 +22,6 @@ SECRET_KEY_FILE = os.path.join(pathlib.Path(__file__).parent, "flask_auth.conf")
 
 SECRET_KEY = ''
 
-'''
-if os.path.exists(SECRET_KEY_FILE):
-    with open(SECRET_KEY_FILE, 'r') as file:
-        SECRET_KEY = file.read().rstrip()
-else:
-    print ("There is no SECRET_KEY_FILE, generate random SECRET_KEY")
-    SECRET_KEY = os.urandom(16).hex'''
-
 if os.path.exists(SECRET_KEY_FILE):
     with open(SECRET_KEY_FILE, 'r') as file:
         SECRET_KEY = file.read().strip()  # Удаляем лишние пробелы и символы новой строки
@@ -38,4 +30,4 @@ else:
     SECRET_KEY = os.urandom(16).hex()  # Генерируем ключ и преобразуем его в строку
     # Сохраняем ключ в файл, чтобы использовать его повторно
     with open(SECRET_KEY_FILE, 'w') as file:
-        file.write(SECRET_KEY)
+        file.write(SECRET_KEY)'''
