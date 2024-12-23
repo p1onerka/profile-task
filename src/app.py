@@ -1,93 +1,4 @@
-from flask import Flask, redirect, render_template, request, url_for, jsonify
-import os
-import hmac
-import hashlib
-from dotenv import load_dotenv
-import requests
-from flask_login import LoginManager, login_user, current_user, logout_user
-from sqlalchemy import MetaData
-from flask_sqlalchemy import SQLAlchemy
-
-load_dotenv()
-
-app = Flask(__name__, static_folder='static', template_folder='templates')
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['TELEGRAM_BOT_TOKEN'] = os.getenv('TELEGRAM_BOT_TOKEN')
-
-convention = {
-    "ix": 'ix_%(column_0_label)s',
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s"
-}
-
-metadata = MetaData(naming_convention=convention)
-db = SQLAlchemy(metadata=metadata)
-db.init_app(app)
-
-login_manager = LoginManager(app)
-login_manager.login_view = 'index'
-
-class User(db.Model, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    nick = db.Column(db.String(255), nullable=True)
-    avatar_uri = db.Column(db.String(512), default='empty.jpg', nullable=False)
-    telegram_id = db.Column(db.String(255), unique=True, nullable=True)
-
-    def __repr__(self) -> str:
-        return f"User(id={self.id}, nick={self.nick})"
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-@app.route('/')
-def index():
-    return render_template('index.html', user=current_user if current_user.is_authenticated else None)
-
-@app.route('/login/telegram', methods=['POST'])
-def telegram_login():
-    data = request.form.to_dict()
-    auth_data = {k: v for k, v in data.items() if k != 'hash'}
-
-    token = app.config['TELEGRAM_BOT_TOKEN']
-    secret = hashlib.sha256(token.encode()).digest()
-    check_hash = hmac.new(secret, "\n".join(f"{k}={v}" for k, v in sorted(auth_data.items())).encode(), hashlib.sha256).hexdigest()
-    if check_hash != data.get('hash'):
-        return "Invalid data signature", 400
-
-    telegram_id = data['id']
-    nick = data.get('username', f"{data.get('first_name', '')} {data.get('last_name', '')}".strip())
-    avatar_uri = data.get('photo_url', 'empty.jpg')
-
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    if user is None:
-        user = User(telegram_id=telegram_id, nick=nick, avatar_uri=avatar_uri)
-        db.session.add(user)
-    else:
-        user.nick = nick
-        user.avatar_uri = avatar_uri
-    db.session.commit()
-
-    login_user(user)
-    return redirect(url_for('index'))
-
-@app.route('/logout')
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
-
-'''from flask import Flask, redirect, render_template, request, url_for, request
+from flask import Flask, redirect, render_template, request, url_for, request
 import os
 import hmac
 import hashlib
@@ -139,7 +50,6 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nick = db.Column(db.String(255), nullable=True)
     avatar_uri = db.Column(db.String(512), default='empty.jpg', nullable=False)
-    vk_id = db.Column(db.String(255), nullable=True)
     telegram_id = db.Column(db.String(255), nullable=True)
 
     def __repr__(self) -> str:
@@ -160,6 +70,33 @@ def index_page():
 def login():
     github_redirect_url = f"{GITHUB_AUTH_URL}?client_id={GITHUB_CLIENT_ID}&redirect_uri={url_for('callback', _external=True)}"
     return redirect(github_redirect_url)
+
+@app.route('/login/telegram', methods=['POST'])
+def telegram_login():
+    data = request.form.to_dict()
+    auth_data = {k: v for k, v in data.items() if k != 'hash'}
+
+    token = app.config['TELEGRAM_BOT_TOKEN']
+    secret = hashlib.sha256(token.encode()).digest()
+    check_hash = hmac.new(secret, "\n".join(f"{k}={v}" for k, v in sorted(auth_data.items())).encode(), hashlib.sha256).hexdigest()
+    if check_hash != data.get('hash'):
+        return "Invalid data signature", 400
+
+    telegram_id = data['id']
+    nick = data.get('username', f"{data.get('first_name', '')} {data.get('last_name', '')}".strip())
+    avatar_uri = data.get('photo_url', 'empty.jpg')
+
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if user is None:
+        user = User(telegram_id=telegram_id, nick=nick, avatar_uri=avatar_uri)
+        db.session.add(user)
+    else:
+        user.nick = nick
+        user.avatar_uri = avatar_uri
+    db.session.commit()
+
+    login_user(user)
+    return redirect(url_for('index'))
 
 @app.route('/callback')
 def callback():
@@ -219,4 +156,3 @@ if __name__ == '__main__':
     #else:
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-'''
