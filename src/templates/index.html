@@ -573,7 +573,7 @@
 		<div class="col-12 col-md-auto d-flex flex-column flex-md-row justify-content-center align-items-center">
 			{% if user %}
             <!-- Greeting -->
-            <p class="me-md-2">Привет, {{ user.name }}!</p>
+            <p class="me-md-2">Привет, {{ user.username }}!</p>
             <!-- Logout Button -->
             <a href="{{ url_for('logout') }}" class="btn btn-outline-danger rounded-3">Выйти</a>
             {% else %}
