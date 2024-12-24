@@ -2,7 +2,6 @@ from flask import Flask, redirect, url_for, session, render_template, request
 from authlib.integrations.flask_client import OAuth
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-import json
 import hashlib
 import hmac
 import os
@@ -17,6 +16,15 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 oauth = OAuth(app)
+
+initialized = False 
+
+@app.before_request
+def init_db():
+    global initialized
+    if not initialized:
+        db.create_all()
+        initialized = True
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
@@ -38,6 +46,25 @@ class User(db.Model):
     name = db.Column(db.String(100), nullable=True)
     username = db.Column(db.String(100), nullable=True)
 
+def save_user(provider, user_info):
+    provider_id = user_info.get('id')
+    username = user_info.get(
+        'username') if provider == 'telegram' else user_info.get('login')
+    name = user_info.get('name') or user_info.get(
+        'login')
+
+    user = User.query.filter_by(
+        provider=provider, provider_id=provider_id).first()
+    if not user:
+        user = User(provider=provider, provider_id=provider_id,
+                    username=username, name=name)
+        db.session.add(user)
+        db.session.commit()
+
+    session['user'] = {'name': user.name, 'username': user.username,
+                       'provider': user.provider}
+    return redirect(url_for('index'))
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     user = session.get('user')
@@ -48,19 +75,24 @@ def login(provider):
     redirect_uri = url_for('authorize', provider=provider, _external=True)
     return oauth.create_client(provider).authorize_redirect(redirect_uri)
 
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('index'))
+
 @app.route('/authorize/<provider>')
 def authorize(provider):
 
     if provider == 'telegram':
-        return handle_telegram_auth()
+        return auth_tg()
     client = oauth.create_client(provider)
     token = client.authorize_access_token()
     user_info = client.get('user').json()
-    return save_user_info(provider, user_info)
+    return save_user(provider, user_info)
 
 @app.route('/telegram_auth', methods=['GET', 'POST'])
 def telegram_auth():
-    return handle_telegram_auth()
+    return auth_tg()
 
 def check_response(data):
     d = data.copy()
@@ -77,7 +109,7 @@ def check_response(data):
     return hmac_string == data['hash']
 
 
-def handle_telegram_auth():
+def auth_tg():
     data = {
         'id': request.args.get('id'),
         'first_name': request.args.get('first_name'),
@@ -99,43 +131,7 @@ def handle_telegram_auth():
         'last_name': data['last_name']
     }
 
-    return save_user_info('telegram', user_info)
-
-
-def save_user_info(provider, user_info):
-    # Extract key user info
-    provider_id = user_info.get('id')
-    username = user_info.get(
-        'username') if provider == 'telegram' else user_info.get('login')
-    name = user_info.get('name') or user_info.get(
-        'login')
-
-    user = User.query.filter_by(
-        provider=provider, provider_id=provider_id).first()
-    if not user:
-        user = User(provider=provider, provider_id=provider_id,
-                    username=username, name=name)
-        db.session.add(user)
-        db.session.commit()
-
-    session['user'] = {'name': user.name, 'username': user.username,
-                       'provider': user.provider}
-    return redirect(url_for('index'))
-
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
-    return redirect(url_for('index'))
-
-initialized = False 
-
-@app.before_request
-def init_db_once():
-    global initialized
-    if not initialized:
-        db.create_all()
-        initialized = True
-
+    return save_user('telegram', user_info)
 
 if __name__ == '__main__':
     with app.app_context(): 
