@@ -30,29 +30,23 @@ github = oauth.register(
     client_kwargs={'scope': 'user:email'},
 )
 
-
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String(50), nullable=False)  # 'google' or 'github'
+    provider = db.Column(db.String(50), nullable=False)
     provider_id = db.Column(db.String(100), unique=True,
-                            nullable=False)  # OAuth unique ID
+                            nullable=False) 
     name = db.Column(db.String(100), nullable=True)
     username = db.Column(db.String(100), nullable=True)
-
-# Routes
-
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     user = session.get('user')
     return render_template('index.html', user=user)
 
-
 @app.route('/login/<provider>')
 def login(provider):
     redirect_uri = url_for('authorize', provider=provider, _external=True)
     return oauth.create_client(provider).authorize_redirect(redirect_uri)
-
 
 @app.route('/authorize/<provider>')
 def authorize(provider):
@@ -64,13 +58,9 @@ def authorize(provider):
     user_info = client.get('user').json()
     return save_user_info(provider, user_info)
 
-
 @app.route('/telegram_auth', methods=['GET', 'POST'])
 def telegram_auth():
     return handle_telegram_auth()
-
-# Function to verify the Telegram auth data
-
 
 def check_response(data):
     d = data.copy()
@@ -98,11 +88,9 @@ def handle_telegram_auth():
         'hash': request.args.get('hash')
     }
 
-    # Check if the response is valid
     if not check_response(data):
         return "Invalid authentication", 403
 
-    # If the response is valid, save the user info
     user_info = {
         'provider': 'telegram',
         'id': data['id'],
@@ -111,7 +99,6 @@ def handle_telegram_auth():
         'last_name': data['last_name']
     }
 
-    # Save user info
     return save_user_info('telegram', user_info)
 
 
@@ -123,32 +110,24 @@ def save_user_info(provider, user_info):
     name = user_info.get('name') or user_info.get(
         'login')
 
-    # Check if user exists in the database
     user = User.query.filter_by(
         provider=provider, provider_id=provider_id).first()
     if not user:
-        # Save new user to the database
         user = User(provider=provider, provider_id=provider_id,
                     username=username, name=name)
         db.session.add(user)
         db.session.commit()
 
-    # Save user to session
     session['user'] = {'name': user.name, 'username': user.username,
                        'provider': user.provider}
     return redirect(url_for('index'))
-
 
 @app.route('/logout')
 def logout():
     session.pop('user', None)
     return redirect(url_for('index'))
 
-# Initialize the database
-
-
-initialized = False  # Flag to ensure initialization runs only once
-
+initialized = False 
 
 @app.before_request
 def init_db_once():
@@ -159,6 +138,6 @@ def init_db_once():
 
 
 if __name__ == '__main__':
-    with app.app_context():  # Ensure the app context is available
-        db.create_all()      # Create the database tables
+    with app.app_context(): 
+        db.create_all()     
     app.run(debug=True)
